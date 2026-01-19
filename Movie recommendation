@@ -1,13 +1,22 @@
+##1. Import Dataset
+"""
 
+# Upload dataset from local system
 from google.colab import files
 uploaded = files.upload()
 
+# Load CSV file
 import pandas as pd
 
 df = pd.read_csv("Movies Recommendation 1(1) (1).csv", engine='python', on_bad_lines='skip')
 
 # Display first 5 rows
 df.head()
+
+"""
+## 2. Dataset Overview
+
+"""
 
 # Dataset shape
 print("Shape:", df.shape)
@@ -23,11 +32,15 @@ df.info()
 # Summary statistics
 df.describe()
 
+"""## 3. Missing Values & Duplicate Handling"""
+
 # Missing values
 print("Missing values:\n", df.isnull().sum())
 
 # Duplicate rows
 print("Duplicate rows:", df.duplicated().sum())
+
+"""## 4. Data Cleaning & Preprocessing"""
 
 # Fill missing textual columns
 text_cols = [
@@ -43,27 +56,33 @@ df['Movie_Homepage'] = df['Movie_Homepage'].fillna('Not Available')
 
 
 # Fill numerical columns
-df['Movie_Budget'].fillna(df['Movie_Budget'].median(), inplace=True)
-df['Movie_Revenue'].fillna(df['Movie_Revenue'].median(), inplace=True)
-df['Movie_Runtime'].fillna(df['Movie_Runtime'].median(), inplace=True)
+df['Movie_Budget'] = df['Movie_Budget'].fillna(df['Movie_Budget'].median())
+df['Movie_Revenue'] = df['Movie_Revenue'].fillna(df['Movie_Revenue'].median())
+df['Movie_Runtime'] = df['Movie_Runtime'].fillna(df['Movie_Runtime'].median())
 
 # Drop duplicates
 df.drop_duplicates(inplace=True)
 
-# Missing values
+# Recheck Missing values
 print("Missing values:\n", df.isnull().sum())
 
+"""## 5. Exploratory Data Analysis (EDA)"""
+
+# Movie popularity distribution
 import seaborn as sns
 import matplotlib.pyplot as plt
+import numpy as np
 
 sns.histplot(df['Movie_Popularity'], bins=30, kde=True)
 plt.title("Movie Popularity Distribution")
 plt.show()
 
+# Movie budget vs revenue
 sns.scatterplot(x='Movie_Budget', y='Movie_Revenue', data=df)
 plt.title("Budget vs Revenue")
 plt.show()
 
+# Feature correlation
 plt.figure(figsize=(10,6))
 sns.heatmap(
     df[['Movie_Budget','Movie_Revenue','Movie_Popularity','Movie_Vote','Movie_Vote_Count']].corr(),
@@ -72,26 +91,88 @@ sns.heatmap(
 plt.title("Feature Correlation")
 plt.show()
 
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-
 # Convert 'Movie_Release_Date' to datetime and extract the year
-df['Release_Year'] = pd.to_datetime(df['Movie_Release_Date'], errors='coerce').dt.year
+df_copy = df.copy()
+df_copy['Release_Year'] = pd.to_datetime(df_copy['Movie_Release_Date'], errors='coerce').dt.year
 # Fill NaN values that might result from 'coerce' if any date is unparseable
-df['Release_Year'] = df['Release_Year'].fillna(df['Release_Year'].mode()[0]).astype(int)
+df_copy.loc[:, 'Release_Year'] = df_copy['Release_Year'].fillna(df_copy['Release_Year'].mode()[0]).astype(int)
 
 plt.figure(figsize=(10,5))
-df['Release_Year'].value_counts().sort_index().plot(kind='line')
+df_copy['Release_Year'].value_counts().sort_index().plot(kind='line')
 plt.title("Number of Movies Released Per Year")
 plt.xlabel("Year")
 plt.ylabel("Number of Movies")
 plt.grid(True)
 plt.show()
 
+# Movie runtime distribution
+plt.figure(figsize=(8,4))
+sns.boxplot(x=df_copy['Movie_Runtime'])
+plt.title("Movie Runtime Distribution")
+plt.xlabel("Runtime (minutes)")
+plt.show()
+
+# Movie budget vs popularity
+plt.figure(figsize=(7,5))
+sns.scatterplot(
+    x='Movie_Budget',
+    y='Movie_Popularity',
+    data=df_copy
+)
+plt.title("Movie Budget vs Popularity")
+plt.show()
+
+# Top 10 Directors by movie count
+plt.figure(figsize=(10,5))
+df_copy['Movie_Director'].value_counts().head(10).plot(kind='bar')
+plt.title("Top 10 Directors by Movie Count")
+plt.xlabel("Director")
+plt.ylabel("Number of Movies")
+plt.show()
+
+#Top movie languages
+plt.figure(figsize=(8,4))
+df_copy['Movie_Language'].value_counts().head(10).plot(kind='pie', autopct='%1.1f%%')
+plt.title("Top Movie Languages")
+plt.ylabel("")
+plt.show()
+
+# Vote Count vs Average Rating
+plt.figure(figsize=(7,5))
+sns.scatterplot(
+    x='Movie_Vote_Count',
+    y='Movie_Vote',
+    data=df_copy
+)
+plt.title("Vote Count vs Average Rating")
+plt.show()
+
+# Keyword Count Distribution
+df_copy.loc[:, 'keyword_count'] = df_copy['Movie_Keywords'].apply(lambda x: len(str(x).split()))
+
+plt.figure(figsize=(7,4))
+sns.histplot(df_copy['keyword_count'], bins=30, kde=True)
+plt.title("Keyword Count Distribution")
+plt.xlabel("Number of Keywords")
+plt.show()
+
+# Budget Outliers count
+Q1 = df_copy['Movie_Budget'].quantile(0.25)
+Q3 = df_copy['Movie_Budget'].quantile(0.75)
+IQR = Q3 - Q1
+
+outliers = df_copy[(df_copy['Movie_Budget'] < Q1 - 1.5*IQR) |
+              (df_copy['Movie_Budget'] > Q3 + 1.5*IQR)]
+
+print("Number of Budget Outliers:", outliers.shape[0])
+sns.pairplot(
+    df_copy[['Movie_Budget','Movie_Revenue','Movie_Popularity','Movie_Vote']],
+    diag_kind='kde'
+)
+plt.show()
+
 # Split multiple genres
-genre_series = df['Movie_Genre'].str.split('|').explode()
+genre_series = df_copy['Movie_Genre'].str.split('|').explode()
 
 plt.figure(figsize=(10,5))
 genre_series.value_counts().head(15).plot(kind='bar')
@@ -100,103 +181,21 @@ plt.xlabel("Genre")
 plt.ylabel("Count")
 plt.show()
 
-plt.figure(figsize=(8,4))
-sns.boxplot(x=df['Movie_Runtime'])
-plt.title("Movie Runtime Distribution")
-plt.xlabel("Runtime (minutes)")
-plt.show()
+"""## 6. Feature Engineering"""
 
-plt.figure(figsize=(7,5))
-sns.scatterplot(
-    x='Movie_Budget',
-    y='Movie_Popularity',
-    data=df
-)
-plt.title("Movie Budget vs Popularity")
-plt.show()
-
-plt.figure(figsize=(8,5))
-plt.scatter(
-    df['Movie_Revenue'],
-    df['Movie_Popularity'],
-    s=df['Movie_Vote_Count']*0.01,
-    alpha=0.5
-)
-plt.xlabel("Revenue")
-plt.ylabel("Popularity")
-plt.title("Revenue vs Popularity (Bubble = Vote Count)")
-plt.show()
-
-plt.figure(figsize=(10,5))
-df['Movie_Director'].value_counts().head(10).plot(kind='bar')
-plt.title("Top 10 Directors by Movie Count")
-plt.xlabel("Director")
-plt.ylabel("Number of Movies")
-plt.show()
-
-plt.figure(figsize=(8,4))
-df['Movie_Language'].value_counts().head(10).plot(kind='pie', autopct='%1.1f%%')
-plt.title("Top Movie Languages")
-plt.ylabel("")
-plt.show()
-
-plt.figure(figsize=(7,5))
-sns.scatterplot(
-    x='Movie_Vote_Count',
-    y='Movie_Vote',
-    data=df
-)
-plt.title("Vote Count vs Average Rating")
-plt.show()
-
-plt.figure(figsize=(10,5))
-df['Movie_Production_Country'].value_counts().head(10).plot(kind='bar')
-plt.title("Top Movie Production Countries")
-plt.xlabel("Country")
-plt.ylabel("Count")
-plt.show()
-
-df['keyword_count'] = df['Movie_Keywords'].apply(lambda x: len(str(x).split()))
-
-plt.figure(figsize=(7,4))
-sns.histplot(df['keyword_count'], bins=30, kde=True)
-plt.title("Keyword Count Distribution")
-plt.xlabel("Number of Keywords")
-plt.show()
-
-df['cast_count'] = df['Movie_Cast'].apply(lambda x: len(str(x).split(',')))
-
-plt.figure(figsize=(7,5))
-sns.scatterplot(
-    x='cast_count',
-    y='Movie_Popularity',
-    data=df
-)
-plt.title("Cast Size vs Movie Popularity")
-plt.show()
-
-Q1 = df['Movie_Budget'].quantile(0.25)
-Q3 = df['Movie_Budget'].quantile(0.75)
-IQR = Q3 - Q1
-
-outliers = df[(df['Movie_Budget'] < Q1 - 1.5*IQR) |
-              (df['Movie_Budget'] > Q3 + 1.5*IQR)]
-
-print("Number of Budget Outliers:", outliers.shape[0])
-sns.pairplot(
-    df[['Movie_Budget','Movie_Revenue','Movie_Popularity','Movie_Vote']],
-    diag_kind='kde'
-)
-plt.show()
-
+# Create combined text features for NLP
 df['combined_features'] = (
-    df['Movie_Genre'] + " " +
-    df['Movie_Keywords'] + " " +
-    df['Movie_Overview'] + " " +
-    df['Movie_Cast'] + " " +
-    df['Movie_Director']
+    df['Movie_Genre'].astype(str) + " " +
+    df['Movie_Keywords'].astype(str) + " " +
+    df['Movie_Overview'].astype(str) + " " +
+    df['Movie_Cast'].astype(str) + " " +
+    df['Movie_Director'].astype(str)
 )
 
+# Ensure no NaNs remain in combined_features before vectorization
+df['combined_features'] = df['combined_features'].fillna('')
+
+# TF-IDF Vectorization
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 tfidf = TfidfVectorizer(stop_words='english', max_features=5000)
@@ -204,6 +203,9 @@ tfidf_matrix = tfidf.fit_transform(df['combined_features'])
 
 print("TF-IDF Matrix Shape:", tfidf_matrix.shape)
 
+"""## 7. Content-Based Recommendation System"""
+
+# Content-Based Recommendation
 from sklearn.metrics.pairwise import cosine_similarity
 
 cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
@@ -221,18 +223,22 @@ def recommend_movies(movie_title, top_n=5):
 
 recommend_movies("Star Wars")
 
-Q1 = df['Movie_Popularity'].quantile(0.25)
-Q3 = df['Movie_Popularity'].quantile(0.75)
+"""## 8. Machine Learning: Popularity Prediction"""
+
+df_filtered = df.copy()
+Q1 = df_filtered['Movie_Popularity'].quantile(0.25)
+Q3 = df_filtered['Movie_Popularity'].quantile(0.75)
 IQR = Q3 - Q1
 
-df = df[(df['Movie_Popularity'] >= Q1 - 1.5*IQR) &
-        (df['Movie_Popularity'] <= Q3 + 1.5*IQR)]
+df_filtered = df_filtered[(df_filtered['Movie_Popularity'] >= Q1 - 1.5*IQR) &
+                           (df_filtered['Movie_Popularity'] <= Q3 + 1.5*IQR)].copy()
 
-df['Budget_Log'] = np.log1p(df['Movie_Budget'])
-df['Revenue_Log'] = np.log1p(df['Movie_Revenue'])
-df['Vote_Weighted'] = df['Movie_Vote'] * df['Movie_Vote_Count']
+#Log transformations
+df_filtered.loc[:, 'Budget_Log'] = np.log1p(df_filtered['Movie_Budget'])
+df_filtered.loc[:, 'Revenue_Log'] = np.log1p(df_filtered['Movie_Revenue'])
+df_filtered.loc[:, 'Vote_Weighted'] = df_filtered['Movie_Vote'] * df_filtered['Movie_Vote_Count']
 
-y = np.log1p(df['Movie_Popularity'])
+y = np.log1p(df_filtered['Movie_Popularity'])
 
 features = [
     'Budget_Log',
@@ -243,10 +249,9 @@ features = [
     'Vote_Weighted'
 ]
 
-X = df[features]
+X = df_filtered[features]
 
-import pandas as pd
-import numpy as np
+"""## 9. Model Training & Evaluation"""
 
 # NLP & Similarity
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -286,14 +291,6 @@ importance = pd.DataFrame({
 
 importance
 
-cv_scores = cross_val_score(
-    rf_model, X, y,
-    scoring='neg_mean_squared_error',
-    cv=5,
-    n_jobs=-1
-)
-
-print("CV MSE:", -cv_scores.mean())
 new_movie = {
     'Budget_Log': np.log1p(150_000_000),
     'Revenue_Log': np.log1p(800_000_000),
@@ -308,7 +305,18 @@ predicted_popularity = rf_model.predict(new_df)
 
 print("ðŸŽ¬ Predicted Movie Popularity (log scale):", round(predicted_popularity[0], 2))
 
-import pandas as pd
+"""## 10. Cross-Validation"""
+
+cv_scores = cross_val_score(
+    rf_model, X, y,
+    scoring='neg_mean_squared_error',
+    cv=5,
+    n_jobs=-1
+)
+
+print("CV MSE:", -cv_scores.mean())
+
+"""## 11. Feature Importance"""
 
 importance = pd.DataFrame({
     'Feature': X.columns,
@@ -317,18 +325,118 @@ importance = pd.DataFrame({
 
 importance
 
+"""## 12. Deployment / Web App (Gradio Interface)"""
+
 import gradio as gr
 
-def movie_recommender(movie_title):
-    recommendations = recommend_movies(movie_title)
-    return "\n".join(recommendations)
+def movie_recommender_advanced(movie_title, top_n):
+    """
+    Returns:
+    1. Movie overview
+    2. Recommended movies with similarity score
+    3. Predicted popularity (ML model)
+    """
 
-movie_titles = df['Movie_Title'].unique().tolist()
+    if movie_title not in df_filtered['Movie_Title'].values:
+        return "âŒ Movie not found.", "", ""
 
-gr.Interface(
-    fn=movie_recommender,
-    inputs=gr.Dropdown(movie_titles, label="ðŸŽ¥ Select a Movie"),
-    outputs=gr.Textbox(label="ðŸ“½ Recommended Movies"),
-    title="ðŸŽ¬ Movie Recommendation System",
-    description="Select a movie and get similar movie recommendations using ML."
-).launch()
+    # Index of selected movie
+    idx = df_filtered[df_filtered['Movie_Title'] == movie_title].index[0]
+
+    # Movie overview
+    overview = df_filtered.loc[idx, 'Movie_Overview']
+
+    # Similarity scores
+    similarity_scores = list(enumerate(cosine_sim[idx]))
+    similarity_scores = sorted(
+        similarity_scores, key=lambda x: x[1], reverse=True
+    )[1:top_n+1]
+
+    recommendations = []
+    for i, score in similarity_scores:
+        recommendations.append(
+            f"ðŸŽ¬ {df_filtered.iloc[i]['Movie_Title']}  |  Similarity: {round(score*100, 2)}%"
+        )
+
+    # Prepare ML features for popularity prediction
+    movie_row = df_filtered.loc[idx]
+
+    input_features = pd.DataFrame([{
+        'Budget_Log': np.log1p(movie_row['Movie_Budget']),
+        'Revenue_Log': np.log1p(movie_row['Movie_Revenue']),
+        'Movie_Runtime': movie_row['Movie_Runtime'],
+        'Movie_Vote': movie_row['Movie_Vote'],
+        'Movie_Vote_Count': movie_row['Movie_Vote_Count'],
+        'Vote_Weighted': movie_row['Movie_Vote'] * movie_row['Movie_Vote_Count']
+    }])
+
+    predicted_popularity = rf_model.predict(input_features)[0]
+
+    return (
+        overview,
+        "\n".join(recommendations),
+        f"ðŸ“ˆ Predicted Popularity (log scale): {round(predicted_popularity, 2)}"
+    )
+
+
+movie_list = sorted(df_filtered['Movie_Title'].unique())
+
+with gr.Blocks(theme=gr.themes.Soft()) as demo:
+
+    gr.Markdown(
+        """
+        # ðŸŽ¥ Movie Recommendation System
+        **Content-Based Filtering + Popularity Prediction**
+
+        This system recommends movies using NLP (TF-IDF + Cosine Similarity)
+        and predicts movie popularity using a Random Forest model.
+        """
+    )
+
+    with gr.Row():
+        movie_input = gr.Dropdown(
+            movie_list,
+            label="ðŸŽ¬ Select a Movie",
+            interactive=True
+        )
+
+        top_n_input = gr.Slider(
+            minimum=3,
+            maximum=10,
+            value=5,
+            step=1,
+            label="ðŸ”¢ Number of Recommendations"
+        )
+
+    overview_output = gr.Textbox(
+        label="ðŸ“ Movie Overview",
+        lines=5
+    )
+
+    recommendations_output = gr.Textbox(
+        label="ðŸ“½ï¸ Recommended Movies (with Similarity Score)",
+        lines=8
+    )
+
+    popularity_output = gr.Textbox(
+        label="â­ ML Predicted Popularity",
+        lines=1
+    )
+
+    with gr.Row():
+        recommend_btn = gr.Button("âœ¨ Get Recommendations")
+        clear_btn = gr.Button("ðŸ§¹ Clear")
+
+    recommend_btn.click(
+        fn=movie_recommender_advanced,
+        inputs=[movie_input, top_n_input],
+        outputs=[overview_output, recommendations_output, popularity_output]
+    )
+
+    clear_btn.click(
+        fn=lambda: ("", "", ""),
+        inputs=[],
+        outputs=[overview_output, recommendations_output, popularity_output]
+    )
+
+demo.launch()
